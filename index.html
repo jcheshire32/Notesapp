@@ -81,6 +81,7 @@
     background:var(--paper); color:var(--inkSoft); }
   .btn-file{ border-color:transparent; background:var(--accent); color:#fff; }
   .link{ font-family:var(--mono); font-size:11px; color:var(--accent); text-decoration:none; }
+  .filing{ display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:12px; font-weight:600; color:var(--accent); padding:4px 2px; }
   .togg{ font-family:var(--mono); font-size:11px; color:var(--muted); background:none; border:none; padding:3px 6px; border-radius:7px; }
   .note-sm{ font-size:12.5px; line-height:1.45; margin-top:10px; }
   .ed-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.8px; color:var(--faint); text-transform:uppercase; margin:10px 0 3px; }
@@ -367,11 +368,12 @@
 
   function fileRow(row){
     var n = noteByRow(row); if(!n) return;
-    setR('Filing into ' + n.category + '…');
+    n._filing = true; setR(''); renderReview();
     post({ action:'file', row:row }).then(function(res){
-      if (res && res.ok){ n.filed=res.filed; n.docLink=res.docLink; renderReview(); setR('Filed into ' + n.category + '.'); }
-      else setR((res&&res.error)||'Filing failed.', true);
-    }).catch(function(err){ setR(err.message||'Network error.', true); });
+      n._filing = false;
+      if (res && res.ok){ n.filed=res.filed; n.docLink=res.docLink; n._justFiled=true; renderReview(); }
+      else { renderReview(); setR((res&&res.error)||'Filing failed.', true); }
+    }).catch(function(err){ n._filing=false; renderReview(); setR(err.message||'Network error.', true); });
   }
 
   function renderReview(){
@@ -390,7 +392,7 @@
 
     var vis = all.filter(function(n){
       var catOk = rFilter==='All' || n.category===rFilter;
-      var showOk = rShow==='all' || !n.filed;
+      var showOk = rShow==='all' || !n.filed || n._justFiled;
       return catOk && showOk;
     });
     if (vis.length===0){
@@ -421,9 +423,13 @@
     if (n.takeaway) h+='<div class="take"><div class="takel">Takeaway</div><div class="taket">'+esc(n.takeaway)+'</div></div>';
     if (n.tags&&n.tags.length) h+='<div class="tags">'+n.tags.map(function(t){return '<span class="pill">#'+esc(t)+'</span>';}).join('')+'</div>';
     h+='<div class="foot"><span class="time">'+esc(fmt(n.time))+'</span><div class="acts">';
-    h+='<button class="btn-sm focus" data-act="edit" data-row="'+n.row+'">edit</button>';
-    if (n.filed) h+='<a class="link focus" href="'+aesc(n.docLink)+'" target="_blank" rel="noopener">open doc →</a>';
-    else h+='<button class="btn-sm btn-file focus" data-act="file" data-row="'+n.row+'">add to '+esc((n.category||'doc').toLowerCase())+'</button>';
+    if (n._filing) {
+      h+='<span class="filing"><span class="spin"></span> filing…</span>';
+    } else {
+      h+='<button class="btn-sm focus" data-act="edit" data-row="'+n.row+'">edit</button>';
+      if (n.filed) h+='<a class="link focus" href="'+aesc(n.docLink)+'" target="_blank" rel="noopener">open doc →</a>';
+      else h+='<button class="btn-sm btn-file focus" data-act="file" data-row="'+n.row+'">add to '+esc((n.category||'doc').toLowerCase())+'</button>';
+    }
     h+='</div></div></div>';
     return h;
   }
